@@ -1,0 +1,80 @@
+{% set color_map = {
+  "green": "bg-green-100 text-green-700",
+  "yellow": "bg-yellow-100 text-yellow-700",
+  "red": "bg-red-100 text-red-700",
+  "orange": "bg-orange-100 text-orange-700",
+  "blue": "bg-blue-100 text-blue-700",
+  "purple": "bg-purple-100 text-purple-700",
+  "slate": "bg-slate-100 text-slate-600"
+} %}
+{% set status_map = {
+  "running_low": "bg-orange-100 text-orange-700",
+  "out_of_stock": "bg-red-100 text-red-700"
+} %}
+
+<div id="item-{{ item.id }}" x-data="{ editing: false }"
+  class="bg-white rounded-xl border border-gray-100 px-4 py-3 flex flex-col gap-2 shadow-sm">
+
+  <div x-show="!editing" class="flex items-center gap-3">
+    <button hx-patch="/items/{{ item.id }}/toggle" hx-target="#item-{{ item.id }}" hx-swap="outerHTML"
+      class="flex-shrink-0 w-5 h-5 rounded-full border-2 transition-colors flex items-center justify-center
+             {% if item.checked %}bg-brand border-brand{% else %}border-gray-300 hover:border-brand{% endif %}">
+      {% if item.checked %}
+      <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+      </svg>
+      {% endif %}
+    </button>
+
+    <span class="flex-1 text-sm font-medium {% if item.checked %}line-through text-gray-400{% else %}text-gray-800{% endif %}">
+      {{ item.name }}
+    </span>
+
+    {% if item.status.value != 'normal' %}
+    <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium {{ status_map.get(item.status.value, '') }}">
+      {{ t['status_' ~ item.status.value] }}
+    </span>
+    {% endif %}
+
+    {% if item.category %}
+    <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium {{ color_map.get(item.category.color, 'bg-slate-100 text-slate-600') }}">
+      {{ translate_category(item.category) }}
+    </span>
+    {% endif %}
+
+    <div class="flex-shrink-0 flex items-center gap-1">
+      <button @click="editing = true"
+        class="p-1.5 text-gray-400 hover:text-brand rounded-lg hover:bg-brand-light transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H8v-2a2 2 0 01.586-1.414z"/>
+        </svg>
+      </button>
+      <button hx-delete="/items/{{ item.id }}" hx-target="#item-list" hx-swap="innerHTML"
+        class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div x-show="editing" x-transition>
+    <form hx-put="/items/{{ item.id }}" hx-target="#item-{{ item.id }}" hx-swap="outerHTML"
+          hx-on::after-request="editing = false" class="space-y-2">
+      <input type="text" name="name" value="{{ item.name }}" required
+        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+      <div class="flex gap-2">
+        <select name="category_id"
+          class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand">
+          <option value="">{{ t.placeholder_no_category }}</option>
+          {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if item.category_id == cat.id %}selected{% endif %}>{{ translate_category(cat) }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="bg-brand text-white rounded-lg px-3 py-2 text-xs font-medium hover:bg-brand-dark transition-colors">{{ t.btn_save }}</button>
+        <button type="button" @click="editing = false" class="border border-gray-200 text-gray-500 rounded-lg px-3 py-2 text-xs hover:bg-gray-50 transition-colors">{{ t.btn_cancel }}</button>
+      </div>
+    </form>
+  </div>
+</div>

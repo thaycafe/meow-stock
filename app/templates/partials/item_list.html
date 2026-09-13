@@ -1,0 +1,21 @@
+{% if items %}
+<div class="space-y-2">
+  {% set unchecked = items | selectattr("checked", "equalto", false) | list %}
+  {% set checked = items | selectattr("checked", "equalto", true) | list %}
+  {% for item in unchecked %}{% include "partials/item_row.html" %}{% endfor %}
+  {% if checked %}
+  <div class="pt-2">
+    <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2 px-1">
+      {{ t.section_purchased }} ({{ checked | length }})
+    </p>
+    {% for item in checked %}{% include "partials/item_row.html" %}{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-16 text-center">
+  <div class="text-5xl mb-3">🥦</div>
+  <p class="text-gray-500 font-medium">{{ t.empty_title }}</p>
+  <p class="text-gray-400 text-sm mt-1">{{ t.empty_subtitle }}</p>
+</div>
+{% endif %}

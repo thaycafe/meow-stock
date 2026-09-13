@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <title>{% block title %}{{ t.app_title }}{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: "#A627F5", light: "#F3E8FE", dark: "#8B1FD4" }
+          }
+        }
+      }
+    }
+  </script>
+  <script>
+    // Apply dark mode before paint to avoid flash
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark')
+    }
+  </script>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900 transition-colors">
+  {% block body %}{% endblock %}
+</body>
+</html>

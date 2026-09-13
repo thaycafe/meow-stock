@@ -1,0 +1,41 @@
+{% if out_of_stock or running_low or normal %}
+<div class="space-y-4">
+
+  {% if out_of_stock %}
+  <div>
+    <div class="flex items-center gap-2 mb-2 px-1">
+      <span class="w-2 h-2 rounded-full bg-red-500"></span>
+      <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ t.stock_section_out_of_stock }} ({{ out_of_stock | length }})</p>
+    </div>
+    <div class="space-y-2">{% for item in out_of_stock %}{% include "partials/stock_row.html" %}{% endfor %}</div>
+  </div>
+  {% endif %}
+
+  {% if running_low %}
+  <div>
+    <div class="flex items-center gap-2 mb-2 px-1">
+      <span class="w-2 h-2 rounded-full bg-orange-400"></span>
+      <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ t.stock_section_running_low }} ({{ running_low | length }})</p>
+    </div>
+    <div class="space-y-2">{% for item in running_low %}{% include "partials/stock_row.html" %}{% endfor %}</div>
+  </div>
+  {% endif %}
+
+  {% if normal %}
+  <div>
+    <div class="flex items-center gap-2 mb-2 px-1">
+      <span class="w-2 h-2 rounded-full bg-green-400"></span>
+      <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ t.stock_section_normal }} ({{ normal | length }})</p>
+    </div>
+    <div class="space-y-2">{% for item in normal %}{% include "partials/stock_row.html" %}{% endfor %}</div>
+  </div>
+  {% endif %}
+
+</div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-20 text-center">
+  <img src="/static/favicon.png" class="w-16 h-16 mb-4 opacity-40" />
+  <p class="text-gray-500 dark:text-gray-400 font-medium">{{ t.stock_empty_title }}</p>
+  <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">{{ t.stock_empty_subtitle }}</p>
+</div>
+{% endif %}

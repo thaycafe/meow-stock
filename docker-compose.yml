@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    container_name: meow-stock
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

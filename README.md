@@ -13,8 +13,8 @@ Self-hosted pantry and shopping list app. Tracks stock status of household items
 
 ## Features
 
-- **Despensa** (`/stock`) — full pantry management: add, edit, delete items; set stock status (normal / running low / out of stock); filter by category
-- **Lista** (`/list`) — auto-generated shopping list from items that are running low or out of stock, grouped by category
+- **Stock** (`/stock`) — full pantry management: add, edit, delete items; set stock status (normal / running low / out of stock); filter by category
+- **Shopping List** (`/list`) — auto-generated shopping list from items that are running low or out of stock, grouped by category
 - Category system with i18n (PT/EN) and color coding
 - Dark mode
 - No authentication

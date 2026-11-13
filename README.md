@@ -37,6 +37,7 @@ Self-hosted pantry and shopping list app. Tracks stock status of household items
 │       ├── stock.html    # Despensa view
 │       └── partials/     # htmx fragments
 ├── static/               # favicon and static assets
+├── tests/                # pytest suite
 ├── data/                 # SQLite DB (volume-mounted, not in image)
 ├── Dockerfile
 ├── docker-compose.yml
@@ -52,3 +53,22 @@ docker compose up -d
 ```
 
 > Code is baked into the Docker image — only `data/` is volume-mounted. After any code change, rebuild: `docker compose build && docker compose up -d`
+
+### Local development
+
+Requires Python 3.10+ (the Docker image uses 3.12). Run every command from the project root — the app resolves `data/`, `static/` and `app/templates/` relative to it.
+
+```bash
+# One-time setup
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt   # app + test dependencies
+cp .env.example .env                            # then set APP_SECRET_KEY
+
+# Run with auto-reload at http://localhost:8000
+.venv/bin/uvicorn app.main:app --reload --env-file .env
+
+# Run the tests (they use a temporary database, never data/lista.db)
+.venv/bin/python -m pytest
+```
+
+The SQLite database is created at `data/lista.db` on first start, with the default categories.

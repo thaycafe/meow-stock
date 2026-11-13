@@ -6,15 +6,16 @@ Self-hosted pantry and shopping list app. Tracks stock status of household items
 
 - **FastAPI** + Jinja2 — server-rendered HTML
 - **htmx 2.x** — dynamic UI without a JS framework
-- **Alpine.js 3.x** — client-side state (forms, dark mode toggle)
+- **Alpine.js 3.x** — client-side state (forms, search/filter, shopping cart, toasts, dark mode)
 - **Tailwind CSS** (CDN) — styling, dark mode via `class` strategy
 - **SQLite** + SQLAlchemy 2.x — persistence
 - **Docker** + docker-compose
 
 ## Features
 
-- **Stock** (`/stock`) — full pantry management: add, edit, delete items; set stock status (normal / running low / out of stock); filter by category
-- **Shopping List** (`/list`) — auto-generated shopping list from items that are running low or out of stock, grouped by category
+- **Stock** (`/stock`) — full pantry management, grouped by category: add, edit and delete items (with undo); set stock status (in stock / running low / out of stock) with a one-tap selector; search by name (accent-insensitive) and filter by status
+- **Shopping List** (`/list`) — auto-generated from items that are running low or out of stock, grouped by category. Tap items to move them to the cart while shopping (kept on the device), then "Finish shopping" restocks them. New items can be added straight from the list
+- Adding an item that already exists offers to put the existing one on the shopping list instead
 - Category system with i18n (PT/EN) and color coding
 - Dark mode
 - No authentication
@@ -24,15 +25,18 @@ Self-hosted pantry and shopping list app. Tracks stock status of household items
 ```
 .
 ├── app/
-│   ├── main.py           # App entry point, /list route
+│   ├── main.py           # App entry point, language switch
 │   ├── models.py         # SQLAlchemy models (Item, Category, StockStatus)
 │   ├── database.py       # DB session setup
 │   ├── i18n.py           # Translations (PT/EN) and category key mapping
+│   ├── services.py       # Shared item queries, grouping and duplicate checks
+│   ├── templating.py     # Jinja2 setup and shared template context
 │   ├── routers/
-│   │   ├── items.py      # PATCH /items/{id}/bought (mark as purchased)
-│   │   └── stock.py      # CRUD for /stock
+│   │   ├── items.py      # /list: shopping list, quick add, checkout
+│   │   └── stock.py      # /stock: pantry CRUD
 │   └── templates/
-│       ├── base.html
+│       ├── base.html     # Layout, header/tabs, toast and Alpine stores
+│       ├── macros.html   # Shared template macros
 │       ├── index.html    # Lista view
 │       ├── stock.html    # Despensa view
 │       └── partials/     # htmx fragments

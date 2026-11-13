@@ -26,8 +26,156 @@
       document.documentElement.classList.add('dark')
     }
   </script>
+  <style>[x-cloak] { display: none !important; }</style>
+  <script>
+    const normalize = (s) => s.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().split(/\s+/).filter(Boolean).join(' ');
+    // htmx.ajax() resolves even on 4xx/5xx. This resolves with the request's afterRequest detail
+    // ({ successful, xhr }) instead, or { successful: false } on a network error.
+    const htmxRequest = (verb, path, context) => new Promise((resolve) => {
+      const onAfter = (e) => {
+        if (e.target !== document.body || e.detail.requestConfig?.path !== path) return;
+        document.body.removeEventListener('htmx:afterRequest', onAfter);
+        resolve(e.detail);
+      };
+      document.body.addEventListener('htmx:afterRequest', onAfter);
+      htmx.ajax(verb, path, context).catch(() => {
+        document.body.removeEventListener('htmx:afterRequest', onAfter);
+        resolve({ successful: false });
+      });
+    });
+    // Plain-text responses are the app's own translated messages; anything else gets the fallback.
+    const errorMessage = (result, fallback) =>
+      (result.xhr?.getResponseHeader('Content-Type') || '').startsWith('text/plain') ? result.xhr.responseText : fallback;
+    // x-show reveals elements a frame after $nextTick, so wait until the element is visible before focusing it.
+    const focusWhenVisible = (el, tries = 20) => {
+      if (el.offsetParent !== null) return el.focus();
+      if (tries) requestAnimationFrame(() => focusWhenVisible(el, tries - 1));
+    };
+
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('toast', {
+        message: '', actionLabel: '', action: null, timer: null,
+        show(message, actionLabel = '', action = null) {
+          clearTimeout(this.timer);
+          Object.assign(this, { message, actionLabel, action });
+          this.timer = setTimeout(() => this.hide(), 6000);
+        },
+        hide() { this.message = ''; this.actionLabel = ''; this.action = null; },
+        run() { const action = this.action; this.hide(); action && action(); },
+      });
+
+      Alpine.store('pantry', {
+        q: '', status: 'all', items: [], loaded: false,
+        refresh() {
+          this.items = [...document.querySelectorAll('[data-item-id]')].map((el) => ({
+            id: Number(el.dataset.itemId), key: el.dataset.key, status: el.dataset.status, group: el.dataset.group,
+          }));
+          this.loaded = true;
+        },
+        matches(item) {
+          const q = normalize(this.q);
+          return (this.status === 'all' || item.status === this.status) && (!q || item.key.includes(q));
+        },
+        visible(id) { const item = this.items.find((i) => i.id === id); return !item || this.matches(item); },
+        groupVisible(group) { return !this.loaded || this.items.some((i) => i.group === group && this.matches(i)); },
+        count(status) { return status === 'all' ? this.items.length : this.items.filter((i) => i.status === status).length; },
+        get noResults() { return this.items.length > 0 && !this.items.some((i) => this.matches(i)); },
+      });
+
+      Alpine.store('cart', {
+        ids: JSON.parse(localStorage.getItem('meow-cart') || '[]'),
+        save() { localStorage.setItem('meow-cart', JSON.stringify(this.ids)); },
+        has(id) { return this.ids.includes(id); },
+        toggle(id) { this.ids = this.has(id) ? this.ids.filter((i) => i !== id) : [...this.ids, id]; this.save(); },
+        prune(validIds) { this.ids = this.ids.filter((i) => validIds.includes(i)); this.save(); },
+      });
+
+      Alpine.data('addItemForm', ({ alwaysOpen = false, target, needUrl, needValues = {}, genericError }) => ({
+        open: alwaysOpen, error: '', existingId: null,
+        openForm() { this.open = true; focusWhenVisible(this.$refs.name); },
+        close() { this.reset(); if (!alwaysOpen) this.open = false; },
+        reset() { this.error = ''; this.existingId = null; this.$refs.form.reset(); },
+        done() { this.close(); if (alwaysOpen) focusWhenVisible(this.$refs.name); },
+        afterRequest(event) {
+          if (event.detail.elt !== this.$refs.form) return;
+          if (event.detail.successful) return this.done();
+          this.error = event.detail.xhr.responseText || genericError;
+          this.existingId = event.detail.xhr.getResponseHeader('X-Existing-Item-Id');
+        },
+        putOnList() {
+          htmxRequest('PATCH', needUrl.replace(':id', this.existingId), { target, swap: 'innerHTML', values: needValues })
+            .then((result) => result.successful ? this.done() : (this.error = errorMessage(result, genericError)));
+        },
+      }));
+    });
+  </script>
 </head>
 <body class="h-full bg-gray-50 dark:bg-gray-900 transition-colors">
-  {% block body %}{% endblock %}
+{% from "macros.html" import list_count_badge %}
+<div class="min-h-full flex flex-col max-w-2xl mx-auto"
+     x-data="{
+       dark: document.documentElement.classList.contains('dark'),
+       toggle() {
+         this.dark = !this.dark;
+         document.documentElement.classList.toggle('dark', this.dark);
+         localStorage.theme = this.dark ? 'dark' : 'light';
+       }
+     }">
+
+  <header class="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 pt-3 shadow-sm">
+    <div class="flex items-center justify-between mb-1">
+      <div class="flex items-center gap-2">
+        <img src="/static/favicon.png" alt="" class="w-7 h-7" />
+        <h1 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ t.app_title }}</h1>
+      </div>
+      <div class="flex items-center">
+        <button type="button" @click="toggle()" :aria-pressed="dark.toString()" aria-label="{{ t.aria_dark_mode }}"
+          class="p-2.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+          <svg x-show="!dark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+          </svg>
+          <svg x-show="dark" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+        </button>
+        <div role="group" aria-label="{{ t.aria_language }}" class="flex items-center">
+          {% for code in ["pt", "en"] %}
+          <form method="post" action="/lang/{{ code }}">
+            <button {% if lang == code %}aria-current="true"{% endif %}
+              class="px-2.5 py-2.5 text-xs rounded-lg {% if lang == code %}text-brand font-semibold{% else %}text-gray-400 hover:text-gray-600 dark:hover:text-gray-300{% endif %} transition-colors">{{ code | upper }}</button>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <nav class="flex gap-1">
+      {% for tab, href, label in [("list", "/list", t.nav_list), ("stock", "/stock", t.nav_stock)] %}
+      <a href="{{ href }}" {% if active_tab == tab %}aria-current="page"{% endif %}
+        class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors
+               {% if active_tab == tab %}border-brand text-brand{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-brand{% endif %}">
+        {{ label }}
+        {% if tab == "list" %}{{ list_count_badge(list_count) }}{% endif %}
+      </a>
+      {% endfor %}
+    </nav>
+    {% block header_extra %}{% endblock %}
+  </header>
+
+  <main class="flex-1 px-4 py-4">
+    {% block main %}{% endblock %}
+  </main>
+
+  {% block bottom %}{% endblock %}
+
+  <div x-data x-show="$store.toast.message" x-cloak x-transition.opacity
+       class="fixed inset-x-0 bottom-28 z-20 flex justify-center px-4 pointer-events-none">
+    <div role="status" aria-live="polite"
+         class="pointer-events-auto flex items-center gap-4 max-w-md w-full bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-xl shadow-lg pl-4 pr-2 py-2">
+      <span class="flex-1" x-text="$store.toast.message"></span>
+      <button type="button" x-show="$store.toast.actionLabel" @click="$store.toast.run()"
+        class="min-h-11 px-3 font-semibold text-brand-light hover:text-white rounded-lg" x-text="$store.toast.actionLabel"></button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

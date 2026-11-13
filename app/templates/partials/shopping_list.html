@@ -1,58 +1,71 @@
-{% set color_map = {
-  "green":  {"bg": "bg-green-100 dark:bg-green-900", "text": "text-green-700 dark:text-green-300", "border": "border-green-200 dark:border-green-800"},
-  "yellow": {"bg": "bg-yellow-100 dark:bg-yellow-900", "text": "text-yellow-700 dark:text-yellow-300", "border": "border-yellow-200 dark:border-yellow-800"},
-  "red":    {"bg": "bg-red-100 dark:bg-red-900", "text": "text-red-700 dark:text-red-300", "border": "border-red-200 dark:border-red-800"},
-  "orange": {"bg": "bg-orange-100 dark:bg-orange-900", "text": "text-orange-700 dark:text-orange-300", "border": "border-orange-200 dark:border-orange-800"},
-  "blue":   {"bg": "bg-blue-100 dark:bg-blue-900", "text": "text-blue-700 dark:text-blue-300", "border": "border-blue-200 dark:border-blue-800"},
-  "purple": {"bg": "bg-purple-100 dark:bg-purple-900", "text": "text-purple-700 dark:text-purple-300", "border": "border-purple-200 dark:border-purple-800"},
-  "slate":  {"bg": "bg-slate-100 dark:bg-slate-700", "text": "text-slate-600 dark:text-slate-300", "border": "border-slate-200 dark:border-slate-700"},
-  "amber":  {"bg": "bg-amber-100 dark:bg-amber-900", "text": "text-amber-700 dark:text-amber-300", "border": "border-amber-200 dark:border-amber-800"},
-  "teal":   {"bg": "bg-teal-100 dark:bg-teal-900", "text": "text-teal-700 dark:text-teal-300", "border": "border-teal-200 dark:border-teal-800"}
-} %}
+{% from "macros.html" import list_count_badge, category_heading, empty_state %}
+{% if is_htmx %}{{ list_count_badge(list_count, oob=true) }}{% endif %}
 
-{% if not categories_with_items %}
-<div class="text-center py-12">
-  <img src="/static/favicon.png" alt="" class="w-16 h-16 mx-auto mb-3 opacity-50" />
-  <p class="text-gray-500 dark:text-gray-400 text-sm">{{ t.empty_list }}</p>
-</div>
-{% else %}
-
-<div class="space-y-6">
-{% for group in categories_with_items %}
-  {% set cat = group.category %}
-  {% set col = color_map.get(cat.color if cat else "slate", color_map["slate"]) %}
-
-  <div class="space-y-2">
-    <div class="flex items-center gap-2 px-1">
-      {% if cat %}
-      <span class="inline-block w-2 h-2 rounded-full {{ col.bg }}"></span>
-      <h2 class="text-xs font-semibold uppercase tracking-wide {{ col.text }}">{{ translate_category(cat) }}</h2>
-      {% else %}
-      <span class="inline-block w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-      <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t.label_no_category }}</h2>
+{# Each item is rendered twice — in its category and in the cart section — and Alpine shows the right copy. #}
+{% macro row(item, in_cart) -%}
+<div x-show="{{ '' if in_cart else '!' }}$store.cart.has({{ item.id }})" {% if in_cart %}x-cloak{% endif %}
+  class="rounded-xl border shadow-sm transition-colors
+         {% if in_cart %}bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700/60{% else %}bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700{% endif %}">
+  <button type="button" role="checkbox" aria-checked="{{ 'true' if in_cart else 'false' }}" @click="$store.cart.toggle({{ item.id }})"
+    class="w-full min-h-12 flex items-center gap-3 px-3 py-2 text-left rounded-xl">
+    <span aria-hidden="true"
+      class="shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center
+             {% if in_cart %}bg-brand border-brand{% else %}border-gray-300 dark:border-gray-500{% endif %}">
+      {% if in_cart %}
+      <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+      </svg>
       {% endif %}
-    </div>
+    </span>
+    <span class="flex-1 min-w-0 text-sm font-medium break-words
+                 {% if in_cart %}line-through text-gray-400 dark:text-gray-500{% else %}text-gray-800 dark:text-gray-100{% endif %}">{{ item.name }}</span>
+    {% if not in_cart %}
+      {% if item.status.value == "out_of_stock" %}
+      <span class="shrink-0 text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 font-medium">{{ t.status_out_of_stock }}</span>
+      {% else %}
+      <span class="shrink-0 text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-300 font-medium">{{ t.status_running_low }}</span>
+      {% endif %}
+    {% endif %}
+  </button>
+</div>
+{%- endmacro %}
 
-    {% for item in group.entries %}
-    <div id="list-item-{{ item.id }}"
-      class="bg-white dark:bg-gray-800 border {{ col.border }} rounded-xl px-4 py-3 flex items-center justify-between shadow-sm">
-      <div class="flex items-center gap-2 min-w-0">
-        {% if item.status.value == 'out_of_stock' %}
-        <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 font-medium">{{ t.status_out_of_stock }}</span>
-        {% else %}
-        <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-300 font-medium">{{ t.status_running_low }}</span>
-        {% endif %}
-        <p class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{{ item.name }}</p>
-      </div>
-      <form hx-patch="/items/{{ item.id }}/bought" hx-target="#shopping-list" hx-swap="innerHTML" class="flex-shrink-0 ml-3">
-        <button class="text-xs px-3 py-1.5 bg-brand text-white rounded-full hover:bg-brand-dark transition-colors font-medium">
-          {{ t.btn_bought }}
+<div x-data x-init="$store.cart.prune({{ item_ids | tojson }})">
+{% if not groups %}
+  {{ empty_state(t.list_empty_title, t.list_empty_subtitle) }}
+{% else %}
+  <div class="flex flex-col gap-6">
+    {% for group in groups %}
+    <section x-show="{{ group.entries | map(attribute='id') | list | tojson }}.some((id) => !$store.cart.has(id))"
+      aria-labelledby="list-cat-{{ group.key }}" class="flex flex-col gap-2">
+      {{ category_heading(group, translate_category, t, "list-cat") }}
+      {% for item in group.entries %}{{ row(item, false) }}{% endfor %}
+    </section>
+    {% endfor %}
+
+    <p x-show="$store.cart.ids.length === {{ item_ids | length }}" x-cloak
+       class="py-6 text-center text-sm font-medium text-gray-500 dark:text-gray-400">{{ t.list_all_in_cart }} 🛒</p>
+
+    <section x-show="$store.cart.ids.length" x-cloak aria-labelledby="cart-title"
+      class="flex flex-col gap-2 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
+      <h2 id="cart-title" class="flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        <span>{{ t.list_cart_title }} (<span x-text="$store.cart.ids.length"></span>)</span>
+      </h2>
+      {% for group in groups %}{% for item in group.entries %}{{ row(item, true) }}{% endfor %}{% endfor %}
+      <form hx-post="/list/checkout" hx-target="#shopping-list" hx-swap="innerHTML" hx-disabled-elt="find button" class="pt-2">
+        <template x-for="id in $store.cart.ids" :key="id"><input type="hidden" name="ids" :value="id" /></template>
+        <button type="submit"
+          class="w-full min-h-12 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium shadow-sm transition-colors disabled:opacity-60">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span>{{ t.btn_finish_shopping }} (<span x-text="$store.cart.ids.length"></span>)</span>
         </button>
       </form>
-    </div>
-    {% endfor %}
+    </section>
   </div>
-{% endfor %}
-</div>
-
 {% endif %}
+</div>

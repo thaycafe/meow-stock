@@ -39,6 +39,8 @@ TRANSLATIONS = {
         "list_empty_subtitle": "Mark pantry items as running low or out of stock",
         "list_section_out_of_stock": "Out of Stock",
         "list_section_running_low": "Running Low",
+        "error_duplicate_item": "“{name}” is already in your pantry",
+        "error_empty_name": "Item name can't be empty",
         **{f"cat_{k}": v["en"] for k, v in CATEGORY_KEYS.items()},
     },
     "pt": {
@@ -67,6 +69,8 @@ TRANSLATIONS = {
         "list_empty_subtitle": "Marque itens da despensa como acabando ou acabou",
         "list_section_out_of_stock": "Acabou",
         "list_section_running_low": "Acabando",
+        "error_duplicate_item": "“{name}” já está na despensa",
+        "error_empty_name": "O nome do item não pode ficar vazio",
         **{f"cat_{k}": v["pt"] for k, v in CATEGORY_KEYS.items()},
     },
 }

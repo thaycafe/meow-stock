@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.i18n import get_lang, get_t, translate_category
-from app.models import Category, Item, StockStatus
+from app.models import Category, Item, StockStatus, clean_name, name_key
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -30,6 +31,24 @@ def get_stock_items(db: Session):
     return out_of_stock, running_low, normal
 
 
+def validate_item_name(request: Request, db: Session, name: str, exclude_id: int | None = None) -> PlainTextResponse | None:
+    """Return a 4xx response with a translated message if the name is empty or already taken."""
+    t = get_t(request)
+    if not clean_name(name):
+        return PlainTextResponse(t["error_empty_name"], status_code=422)
+    query = db.query(Item).filter(Item.name_key == name_key(name))
+    if exclude_id is not None:
+        query = query.filter(Item.id != exclude_id)
+    existing = query.first()
+    if existing:
+        return duplicate_response(request, existing.name)
+    return None
+
+
+def duplicate_response(request: Request, name: str) -> PlainTextResponse:
+    return PlainTextResponse(get_t(request)["error_duplicate_item"].format(name=name), status_code=409)
+
+
 @router.get("/stock", response_class=HTMLResponse)
 async def stock_page(request: Request, db: Session = Depends(get_db)):
     out_of_stock, running_low, normal = get_stock_items(db)
@@ -48,9 +67,15 @@ async def add_stock_item(
     status: StockStatus = Form(StockStatus.normal),
     db: Session = Depends(get_db),
 ):
+    if error := validate_item_name(request, db, name):
+        return error
     item = Item(name=name.strip(), category_id=parse_category_id(category_id), status=status)
     db.add(item)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return duplicate_response(request, clean_name(name))
     out_of_stock, running_low, normal = get_stock_items(db)
     categories = db.query(Category).all()
     return templates.TemplateResponse(
@@ -106,9 +131,15 @@ async def edit_stock_item(
 ):
     item = db.query(Item).filter(Item.id == item_id).first()
     if item:
+        if error := validate_item_name(request, db, name, exclude_id=item.id):
+            return error
         item.name = name.strip()
         item.category_id = parse_category_id(category_id)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            return duplicate_response(request, clean_name(name))
     out_of_stock, running_low, normal = get_stock_items(db)
     categories = db.query(Category).all()
     return templates.TemplateResponse(

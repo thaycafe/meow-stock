@@ -10,7 +10,7 @@
   "teal":   "bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300"
 } %}
 
-<div id="stock-item-{{ item.id }}" x-data="{ editing: false }"
+<div id="stock-item-{{ item.id }}" x-data="{ editing: false, editError: '' }"
   class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-4 py-3 flex flex-col gap-2 shadow-sm">
 
   <div x-show="!editing" class="flex items-center gap-3">
@@ -84,9 +84,12 @@
 
   <div x-show="editing" x-transition>
     <form hx-post="/stock/items/{{ item.id }}/edit" hx-target="#stock-list" hx-swap="innerHTML"
-          hx-on::after-request="editing = false" class="space-y-2">
+          @htmx:after-request="if ($event.detail.successful) { editing = false; editError = '' } else { editError = $event.detail.xhr.responseText }"
+          class="space-y-2">
       <input type="text" name="name" value="{{ item.name }}" required
+        @input="editError = ''"
         class="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+      <p x-show="editError" x-text="editError" role="alert" class="text-xs text-red-600 dark:text-red-400"></p>
       <div class="flex gap-2">
         <select name="category_id"
           class="flex-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
@@ -96,7 +99,7 @@
           {% endfor %}
         </select>
         <button type="submit" class="bg-brand text-white rounded-lg px-3 py-2 text-xs font-medium hover:bg-brand-dark transition-colors">{{ t.btn_save }}</button>
-        <button type="button" @click="editing = false" class="border border-gray-200 dark:border-gray-600 dark:text-gray-300 text-gray-500 rounded-lg px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">{{ t.btn_cancel }}</button>
+        <button type="button" @click="editing = false; editError = ''; $el.form.reset()" class="border border-gray-200 dark:border-gray-600 dark:text-gray-300 text-gray-500 rounded-lg px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">{{ t.btn_cancel }}</button>
       </div>
     </form>
   </div>

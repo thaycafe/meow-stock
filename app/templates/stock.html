@@ -46,7 +46,7 @@
 {% block bottom %}
 <div class="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 px-4 py-4"
      x-data='addItemForm({ target: "#stock-list", needUrl: "/stock/items/:id/status", needValues: { status: "out_of_stock" }, genericError: {{ t.error_generic | tojson }} })'
-     @htmx:after-request="afterRequest($event)" @keydown.escape="close()">
+     @htmx:before-request="beforeRequest($event)" @htmx:after-request="afterRequest($event)" @keydown.escape="close()">
   <div x-show="!open" x-transition>
     <button type="button" @click="openForm()"
       class="w-full flex items-center justify-center gap-2 bg-brand text-white rounded-xl py-3.5 font-medium shadow-lg hover:bg-brand-dark transition-all active:scale-95">
@@ -78,8 +78,8 @@
       </div>
       <div class="flex gap-2">
         <button type="submit" class="flex-1 min-h-11 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-dark transition-colors disabled:opacity-60">{{ t.btn_add }}</button>
-        <button type="button" @click="close()" aria-label="{{ t.btn_cancel }}"
-          class="min-h-11 min-w-11 border border-gray-200 dark:border-gray-600 dark:text-gray-300 text-gray-500 rounded-lg px-4 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">✕</button>
+        <button type="button" @click="close()" :disabled="pending" aria-label="{{ t.btn_cancel }}"
+          class="min-h-11 min-w-11 border border-gray-200 dark:border-gray-600 dark:text-gray-300 text-gray-500 rounded-lg px-4 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-60">✕</button>
       </div>
     </form>
     {% include "partials/add_error.html" %}

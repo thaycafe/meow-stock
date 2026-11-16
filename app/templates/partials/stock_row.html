@@ -18,13 +18,13 @@
       </svg>
     </button>
 
-    <div role="group" aria-label="{{ t.aria_item_status }}: {{ item.name }}"
+    <div id="status-{{ item.id }}" role="group" aria-label="{{ t.aria_item_status }}: {{ item.name }}"
       class="grid grid-cols-3 gap-1 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-900/60 sm:w-80 shrink-0">
       {% for value in ["normal", "running_low", "out_of_stock"] %}
       {% set current = item.status.value == value %}
       <button type="button" aria-pressed="{{ 'true' if current else 'false' }}"
         {% if not current %}hx-patch="/stock/items/{{ item.id }}/status" hx-vals='{"status": "{{ value }}"}'
-        hx-target="#stock-list" hx-swap="innerHTML" hx-disabled-elt="this"{% endif %}
+        hx-target="#stock-list" hx-swap="innerHTML" hx-disabled-elt="#status-{{ item.id }} button"{% endif %}
         class="min-h-10 px-1 rounded-md text-xs font-medium transition-colors
                {% if current %}{{ status_styles[value] }} cursor-default{% else %}text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-100{% endif %}">
         {{ t["status_" ~ value] }}

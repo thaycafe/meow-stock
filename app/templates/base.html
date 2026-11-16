@@ -91,20 +91,31 @@
       });
 
       Alpine.data('addItemForm', ({ alwaysOpen = false, target, needUrl, needValues = {}, genericError }) => ({
-        open: alwaysOpen, error: '', existingId: null,
+        open: alwaysOpen, error: '', existingId: null, pending: false,
         openForm() { this.open = true; focusWhenVisible(this.$refs.name); },
-        close() { this.reset(); if (!alwaysOpen) this.open = false; },
+        // Closing mid-request would let the pending response act on a draft typed after reopening.
+        close() { if (this.pending) return; this.reset(); if (!alwaysOpen) this.open = false; },
         reset() { this.error = ''; this.existingId = null; this.$refs.form.reset(); },
-        done() { this.close(); if (alwaysOpen) focusWhenVisible(this.$refs.name); },
+        done(submitted) {
+          if (this.$refs.name.value !== submitted) return;
+          this.close(); if (alwaysOpen) focusWhenVisible(this.$refs.name);
+        },
+        beforeRequest(event) { if (event.detail.elt === this.$refs.form) this.pending = true; },
         afterRequest(event) {
           if (event.detail.elt !== this.$refs.form) return;
-          if (event.detail.successful) return this.done();
+          this.pending = false;
+          if (event.detail.successful) return this.done(event.detail.requestConfig.formData.get('name'));
           this.error = event.detail.xhr.responseText || genericError;
           this.existingId = event.detail.xhr.getResponseHeader('X-Existing-Item-Id');
         },
         putOnList() {
+          const submitted = this.$refs.name.value;
+          this.pending = true;
           htmxRequest('PATCH', needUrl.replace(':id', this.existingId), { target, swap: 'innerHTML', values: needValues })
-            .then((result) => result.successful ? this.done() : (this.error = errorMessage(result, genericError)));
+            .then((result) => {
+              this.pending = false;
+              result.successful ? this.done(submitted) : (this.error = errorMessage(result, genericError));
+            });
         },
       }));
     });

@@ -4,7 +4,7 @@
   "out_of_stock": "bg-red-600 text-white shadow-sm",
 } %}
 <div data-item-id="{{ item.id }}" data-key="{{ item.name_key }}" data-status="{{ item.status.value }}" data-group="{{ group.key }}"
-     x-data="{ editing: false, editError: '' }" x-show="$store.pantry.visible({{ item.id }})"
+     x-data="{ editing: false, editError: '', editPending: false }" x-show="$store.pantry.visible({{ item.id }})"
      class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-3 py-1.5 shadow-sm">
 
   <div x-show="!editing" class="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3">
@@ -35,14 +35,15 @@
 
   <form x-show="editing" x-cloak hx-post="/stock/items/{{ item.id }}/edit" hx-target="#stock-list" hx-swap="innerHTML"
         hx-disabled-elt="find button[type=submit]" data-generic-error="{{ t.error_generic }}"
-        @htmx:after-request="if ($event.detail.successful) { editing = false; editError = '' } else { editError = $event.detail.xhr.responseText || $el.dataset.genericError }"
-        @keydown.escape="editing = false; editError = ''; $el.reset()"
+        @htmx:before-request="if ($event.detail.elt === $el) editPending = true"
+        @htmx:after-request="if ($event.detail.elt !== $el) return; editPending = false; if ($event.detail.successful) { editing = false; editError = '' } else { editError = $event.detail.xhr.responseText || $el.dataset.genericError }"
+        @keydown.escape="if (editPending) return; editing = false; editError = ''; $el.reset()"
         class="space-y-2 py-1">
-    <input x-ref="name" type="text" name="name" value="{{ item.name }}" required aria-label="{{ t.placeholder_item_name }}"
+    <input :disabled="editPending" x-ref="name" type="text" name="name" value="{{ item.name }}" required aria-label="{{ t.placeholder_item_name }}"
       @input="editError = ''"
       class="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
     <p x-show="editError" x-text="editError" role="alert" class="text-xs text-red-600 dark:text-red-400"></p>
-    <select name="category_id" aria-label="{{ t.placeholder_no_category }}"
+    <select :disabled="editPending" name="category_id" aria-label="{{ t.placeholder_no_category }}"
       class="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
       <option value="">{{ t.placeholder_no_category }}</option>
       {% for cat in categories %}
@@ -50,16 +51,16 @@
       {% endfor %}
     </select>
     <div class="flex gap-2">
-      <button type="button" hx-delete="/stock/items/{{ item.id }}" hx-target="#stock-list" hx-swap="innerHTML" hx-disabled-elt="this"
+      <button type="button" :disabled="editPending" hx-delete="/stock/items/{{ item.id }}" hx-target="#stock-list" hx-swap="innerHTML" hx-disabled-elt="this"
         class="mr-auto min-h-11 flex items-center gap-1.5 px-3 rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
         </svg>
         {{ t.btn_delete }}
       </button>
-      <button type="button" @click="editing = false; editError = ''; $el.form.reset()"
+      <button type="button" :disabled="editPending" @click="if (editPending) return; editing = false; editError = ''; $el.form.reset()"
         class="min-h-11 px-3 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-300 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">{{ t.btn_cancel }}</button>
-      <button type="submit"
+      <button type="submit" :disabled="editPending"
         class="min-h-11 px-4 rounded-lg bg-brand text-white text-xs font-medium hover:bg-brand-dark transition-colors disabled:opacity-60">{{ t.btn_save }}</button>
     </div>
   </form>

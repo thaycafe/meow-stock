@@ -32,16 +32,19 @@
     // htmx.ajax() resolves even on 4xx/5xx. This resolves with the request's afterRequest detail
     // ({ successful, xhr }) instead, or { successful: false } on a network error.
     const htmxRequest = (verb, path, context) => new Promise((resolve) => {
-      const onAfter = (e) => {
-        if (e.target !== document.body || e.detail.requestConfig?.path !== path) return;
-        document.body.removeEventListener('htmx:afterRequest', onAfter);
-        resolve(e.detail);
+      const source = document.createElement('span');
+      source.hidden = true;
+      document.body.appendChild(source);
+      const finish = (result) => {
+        source.removeEventListener('htmx:afterRequest', onAfter);
+        source.remove();
+        resolve(result);
       };
-      document.body.addEventListener('htmx:afterRequest', onAfter);
-      htmx.ajax(verb, path, context).catch(() => {
-        document.body.removeEventListener('htmx:afterRequest', onAfter);
-        resolve({ successful: false });
-      });
+      const onAfter = (e) => {
+        if (e.target === source) finish(e.detail);
+      };
+      source.addEventListener('htmx:afterRequest', onAfter);
+      htmx.ajax(verb, path, { ...context, source }).catch(() => finish({ successful: false }));
     });
     // Plain-text responses are the app's own translated messages; anything else gets the fallback.
     const errorMessage = (result, fallback) =>
@@ -83,8 +86,13 @@
       });
 
       Alpine.store('cart', {
-        ids: JSON.parse(localStorage.getItem('meow-cart') || '[]'),
-        save() { localStorage.setItem('meow-cart', JSON.stringify(this.ids)); },
+        ids: (() => {
+          try {
+            const ids = JSON.parse(localStorage.getItem('meow-cart') || '[]');
+            return Array.isArray(ids) ? ids : [];
+          } catch { return []; }
+        })(),
+        save() { try { localStorage.setItem('meow-cart', JSON.stringify(this.ids)); } catch {} },
         has(id) { return this.ids.includes(id); },
         toggle(id) { this.ids = this.has(id) ? this.ids.filter((i) => i !== id) : [...this.ids, id]; this.save(); },
         prune(validIds) { this.ids = this.ids.filter((i) => validIds.includes(i)); this.save(); },
@@ -104,7 +112,9 @@
         afterRequest(event) {
           if (event.detail.elt !== this.$refs.form) return;
           this.pending = false;
-          if (event.detail.successful) return this.done(event.detail.requestConfig.formData.get('name'));
+          const submitted = event.detail.requestConfig.formData.get('name');
+          if (this.$refs.name.value !== submitted) return;
+          if (event.detail.successful) return this.done(submitted);
           this.error = event.detail.xhr.responseText || genericError;
           this.existingId = event.detail.xhr.getResponseHeader('X-Existing-Item-Id');
         },

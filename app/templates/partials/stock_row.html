@@ -36,7 +36,7 @@
   <form x-show="editing" x-cloak hx-post="/stock/items/{{ item.id }}/edit" hx-target="#stock-list" hx-swap="innerHTML"
         hx-disabled-elt="find button[type=submit]" data-generic-error="{{ t.error_generic }}"
         @htmx:before-request="if ($event.detail.elt === $el) editPending = true"
-        @htmx:after-request="if ($event.detail.elt !== $el) return; editPending = false; if ($event.detail.successful) { editing = false; editError = '' } else { editError = $event.detail.xhr.responseText || $el.dataset.genericError }"
+        @htmx:after-request="editPending = false; if ($event.detail.successful) { editing = false; editError = '' } else { editError = $event.detail.xhr.responseText || $el.dataset.genericError }"
         @keydown.escape="if (editPending) return; editing = false; editError = ''; $el.reset()"
         class="space-y-2 py-1">
     <input :disabled="editPending" x-ref="name" type="text" name="name" value="{{ item.name }}" required aria-label="{{ t.placeholder_item_name }}"
@@ -52,6 +52,7 @@
     </select>
     <div class="flex gap-2">
       <button type="button" :disabled="editPending" hx-delete="/stock/items/{{ item.id }}" hx-target="#stock-list" hx-swap="innerHTML" hx-disabled-elt="this"
+        @htmx:after-request.stop="if (!$event.detail.successful) editError = $event.detail.xhr.responseText || $el.form.dataset.genericError"
         class="mr-auto min-h-11 flex items-center gap-1.5 px-3 rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>

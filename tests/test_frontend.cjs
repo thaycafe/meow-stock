@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const base = fs.readFileSync('app/templates/base.html', 'utf8');
-const script = base.match(/<script>\s*(const normalize[\s\S]*?)<\/script>/)[1];
+const script = base.match(/<script>\s*((?:\/\/.*\s*)*const foldCase[\s\S]*?)<\/script>/)[1];
 
 function setup(storage = {}) {
   const stores = {}, components = {}, requests = [], sources = new Set();
@@ -51,6 +51,13 @@ test('concurrent requests to the same endpoint complete independently and clean 
   env.requests[0].reject(new Error('network'));
   assert.equal((await first).successful, false);
   assert.equal(env.sources.size, 0);
+});
+
+test('search keys use the same case folding as the server', () => {
+  const { context } = setup();
+  const normalize = s => vm.runInContext('normalize', context)(s);
+  assert.equal(normalize('  STRAẞE  Açúcar '), 'strasse acucar');
+  assert.equal(normalize('ΟΔΟΣ ſ ı'), 'οδοσ s ı');
 });
 
 test('cart tolerates unavailable, malformed, and non-array storage', () => {
@@ -115,4 +122,22 @@ test('stock editor stays locked during save and becomes editable after failure',
   assert.equal(context.editPending, false);
   assert.equal(context.editing, true);
   assert.equal(context.editError, 'Duplicate');
+  context.editing = true;
+  context.$event.detail.successful = true;
+  run('htmx:after-request');
+  assert.equal(context.editing, false);
+  assert.equal(context.editError, '');
+});
+
+test('failed delete shows an error without closing the stock editor', () => {
+  const row = fs.readFileSync('app/templates/partials/stock_row.html', 'utf8');
+  const handler = row.match(/hx-delete=[^>]*@htmx:after-request\.stop="([^"]+)"/)[1];
+  const button = { form: { dataset: { genericError: 'Error' } } };
+  const context = vm.createContext({ editing: true, editError: '', $el: button, $event: { detail: { successful: false, xhr: { responseText: '' } } } });
+  vm.runInContext(handler, context);
+  assert.equal(context.editError, 'Error');
+  assert.equal(context.editing, true);
+  context.$event.detail.xhr.responseText = 'Not found';
+  vm.runInContext(handler, context);
+  assert.equal(context.editError, 'Not found');
 });

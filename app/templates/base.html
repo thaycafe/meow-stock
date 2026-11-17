@@ -28,7 +28,10 @@
   </script>
   <style>[x-cloak] { display: none !important; }</style>
   <script>
-    const normalize = (s) => s.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().split(/\s+/).filter(Boolean).join(' ');
+    // JS has no casefold(); this mirrors Python's str.casefold() used by the server's name_key().
+    const foldCase = (s) => Array.from(s, (c) =>
+      c === 'ı' ? c : /[\u13A0-\u13FD\uAB70-\uABBF]/.test(c) ? c.toUpperCase() : c.toLowerCase().toUpperCase().toLowerCase()).join('');
+    const normalize = (s) => foldCase(s.normalize('NFKD').replace(/\p{M}/gu, '')).split(/\s+/).filter(Boolean).join(' ');
     // htmx.ajax() resolves even on 4xx/5xx. This resolves with the request's afterRequest detail
     // ({ successful, xhr }) instead, or { successful: false } on a network error.
     const htmxRequest = (verb, path, context) => new Promise((resolve) => {
@@ -46,7 +49,7 @@
       source.addEventListener('htmx:afterRequest', onAfter);
       htmx.ajax(verb, path, { ...context, source }).catch(() => finish({ successful: false }));
     });
-    // Plain-text responses are the app's own translated messages; anything else gets the fallback.
+    // Plain-text responses are the app's own translated messages.
     const errorMessage = (result, fallback) =>
       (result.xhr?.getResponseHeader('Content-Type') || '').startsWith('text/plain') ? result.xhr.responseText : fallback;
     // x-show reveals elements a frame after $nextTick, so wait until the element is visible before focusing it.

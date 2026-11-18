@@ -11,7 +11,6 @@ def clean_name(name: str) -> str:
 
 
 def name_key(name: str) -> str:
-    """Comparison key: whitespace-collapsed, accent-stripped, case-folded."""
     decomposed = unicodedata.normalize("NFKD", clean_name(name))
     return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
 
@@ -37,7 +36,7 @@ ITEM_NAME_KEY_INDEX = "ux_items_name_key"
 
 class Item(Base):
     __tablename__ = "items"
-    __table_args__ = (Index(ITEM_NAME_KEY_INDEX, "name_key", unique=True),)
+    __table_args__ = (Index(ITEM_NAME_KEY_INDEX, "name_key", unique=True), {"sqlite_autoincrement": True})
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(128))

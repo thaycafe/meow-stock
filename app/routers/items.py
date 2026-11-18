@@ -1,51 +1,59 @@
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.i18n import get_lang, get_t, translate_category
-from app.models import Item, StockStatus
+from app.i18n import get_lang
+from app.models import Item, StockStatus, clean_name
+from app.services import LIST_STATUSES, duplicate_response, group_by_category, name_conflict
+from app.templating import render
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 
-def ctx(request: Request, **extra) -> dict:
-    lang = get_lang(request)
-    return {"request": request, "t": get_t(request), "lang": lang,
-            "translate_category": lambda cat: translate_category(cat, lang), **extra}
-
-
-def get_list_by_category(db: Session):
-    items = (
-        db.query(Item)
-        .filter(Item.status.in_([StockStatus.out_of_stock, StockStatus.running_low]))
-        .order_by(Item.name)
-        .all()
+def render_shopping_list(request: Request, db: Session, template: str = "partials/shopping_list.html"):
+    items = db.query(Item).filter(Item.status.in_(LIST_STATUSES)).all()
+    return render(
+        request, db, template,
+        groups=group_by_category(items, get_lang(request)),
+        item_ids=[i.id for i in items],
     )
-    groups: dict = {}
-    no_cat = []
-    for item in items:
-        if item.category_id:
-            groups.setdefault(item.category_id, {"category": item.category, "entries": []})
-            groups[item.category_id]["entries"].append(item)
-        else:
-            no_cat.append(item)
-    result = list(groups.values())
-    result.sort(key=lambda g: g["category"].name)
-    if no_cat:
-        result.append({"category": None, "entries": no_cat})
-    return result
 
 
-@router.patch("/items/{item_id}/bought", response_class=HTMLResponse)
-async def mark_bought(request: Request, item_id: int, db: Session = Depends(get_db)):
-    item = db.query(Item).filter(Item.id == item_id).first()
-    if item:
-        item.status = StockStatus.normal
+@router.get("/list", response_class=HTMLResponse)
+async def list_page(request: Request, db: Session = Depends(get_db)):
+    return render_shopping_list(request, db, "index.html")
+
+
+@router.post("/list/items", response_class=HTMLResponse)
+async def add_to_list(request: Request, name: str = Form(...), db: Session = Depends(get_db)):
+    if error := name_conflict(request, db, name):
+        return error
+    db.add(Item(name=name, status=StockStatus.out_of_stock))
+    try:
         db.commit()
-    categories_with_items = get_list_by_category(db)
-    return templates.TemplateResponse(
-        "partials/shopping_list.html",
-        ctx(request, categories_with_items=categories_with_items),
-    )
+    except IntegrityError:
+        db.rollback()
+        return duplicate_response(request, clean_name(name))
+    return render_shopping_list(request, db)
+
+
+@router.patch("/list/items/{item_id}/need", response_class=HTMLResponse)
+async def put_on_list(request: Request, item_id: int, db: Session = Depends(get_db)):
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if item and item.status not in LIST_STATUSES:
+        item.status = StockStatus.out_of_stock
+        db.commit()
+    return render_shopping_list(request, db)
+
+
+@router.post("/list/checkout", response_class=HTMLResponse)
+async def checkout(request: Request, ids: list[int] = Form(default=[]), db: Session = Depends(get_db)):
+    if ids:
+        (
+            db.query(Item)
+            .filter(Item.id.in_(ids), Item.status.in_(LIST_STATUSES))
+            .update({Item.status: StockStatus.normal}, synchronize_session=False)
+        )
+        db.commit()
+    return render_shopping_list(request, db)
